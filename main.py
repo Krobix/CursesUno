@@ -72,7 +72,7 @@ class Card:
             if i % 2 == 0:
                 self.label += " "
             else:
-                self.label = " " +  self.label
+                self.label = " " + self.label
 
     def draw(self, window):
         #Given a curses Window object, draw a card on it. It's expected that the window is already the right size.
