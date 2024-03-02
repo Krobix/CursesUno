@@ -1,4 +1,4 @@
-import curses
+import curses, random
 #Uno game written in python using Curses for Performance task. Started 2/29/24
 
 #String literal to be formatted to show specific cards. Uses keyword arguments for formatting
@@ -7,21 +7,19 @@ CARD_FORMAT = """_________
 |{card_label}|
 |_______|"""
 
+#Welcome and help messages
+WELCOME_MSG = """
+Hello! Welcome to Uno. Yu will be playing the Uno card game in the terminal with 2-5 computer players. If you want to know how to play,
+you can press the h key any time after leaving this screen to view the instructions. Please note that this game requires a terminal that 
+supports color. Do NOT resize the terminal while playing. For now, please enter the amount of computer players
+ that you want to play against (between 2-5):\n
+"""
+
 #Constants for card size
 CARD_WIDTH = 9
 CARD_HEIGHT = 4
 
-#####INTITIALIZING COLOR PAIRS
-curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
-curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
-curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)
-curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-#############################
-
 #String where debug info is stored during execution of program. the ` key can be pressed to toggle it on screen
-#if debug_enabled is set to true under "input modes"
 debug_buffer = "DEBUG LOG"
 
 #screen status
@@ -32,6 +30,14 @@ help_showing = False
 card_select_enabled = True
 debug_enabled = True
 help_enabled = True
+
+#global screen information variables
+screen_height = 0
+screen_width = 0
+
+#game state variables
+players = []
+last_card = None #Card on top of deck
 
 class Card:
     #Class for cards
@@ -46,6 +52,7 @@ class Card:
         self.color = color
         self.number = number
         self.create_label()
+        debug(f"Created Card object with card_type={str(card_type)} color={str(color)} number={str(number)} label={str(self.label)}")
 
     def create_label(self):
         i = 0 #Used for padding- see below
@@ -77,14 +84,77 @@ class Card:
     def draw(self, window):
         #Given a curses Window object, draw a card on it. It's expected that the window is already the right size.
         window.clear()
-        window.addstr()
+        window.addstr(CARD_FORMAT.format(card_label=self.label), curses.color_pair(self.color))
+        window.refresh()
+
+    @staticmethod
+    def generate():
+        #Randomly generates a card. The likelihood of a specific card being generated is based on the amount of cards
+        #In an actual Uno deck.
+        card_type = 0
+        color = 0
+        number = 0
+        card_type = random.choices(range(0, 8), cum_weights=(70, 3, 5, 5, 2, 2, 7, 6), k=1)
+        #Wild cards are white until their color is chosen
+        if not (card_type in (1, 4, 5)):
+            color = random.randint(2, 5)
+        else:
+            color = 1
+
+        number = random.randint(0, 9)
+
+        return Card(card_type, color, number)
+
+class Player:
+    #Class for players (Computer and Human)
+    def __init__(self, player_num, color):
+        self.player_num = player_num
+        self.color = color
+        self.cards = []
+        for i in range(7):
+            self.cards.append(Card.generate())
+
+    def draw_card(self):
+        #Draw random card
+        self.cards.append(Card.generate())
+
+    def play_card(self, card_num):
+        #Method to play card for both computer and human players.
+        #Does not check for validity or make actions happen.
+        global last_card
+        last_card = self.cards.pop(card_num)
+
+def debug(msg):
+    #Adds msg to debug_buffer
+    global debug_buffer
+    debug_buffer += f"\n{msg}"
 
 def main_curses(stdscr):
     #Entry point for curses
-    pass
+    global screen_height, screen_width
+    screen_height, screen_width = stdscr.getmaxyx()
+    #####INTITIALIZING COLOR PAIRS
+    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
+    curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+    #############################
+
 
 def main():
     #Real start of program; curses.wrapper() is called here
+    global players
+    print(WELCOME_MSG)
+    players_amount = input()
+    while not (players_amount.isdigit() and (int(players_amount) in range(2, 6))):
+        print("Please enter an integer between 2-5:\n")
+        players_amount = input()
+
+    for i in range(int(players_amount)):
+        players.append(Player(i+1, i+1))
+
     curses.wrapper(main_curses)
 
 main()
