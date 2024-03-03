@@ -37,7 +37,7 @@ screen_width = 0
 
 #game state variables
 players = []
-last_card = None #Card on top of deck
+card_deck = []
 
 class Card:
     #Class for cards
@@ -87,24 +87,6 @@ class Card:
         window.addstr(CARD_FORMAT.format(card_label=self.label), curses.color_pair(self.color))
         window.refresh()
 
-    @staticmethod
-    def generate():
-        #Randomly generates a card. The likelihood of a specific card being generated is based on the amount of cards
-        #In an actual Uno deck.
-        card_type = 0
-        color = 0
-        number = 0
-        card_type = random.choices(range(0, 8), cum_weights=(70, 3, 5, 5, 2, 2, 7, 6), k=1)
-        #Wild cards are white until their color is chosen
-        if not (card_type in (1, 4, 5)):
-            color = random.randint(2, 5)
-        else:
-            color = 1
-
-        number = random.randint(0, 9)
-
-        return Card(card_type, color, number)
-
 class Player:
     #Class for players (Computer and Human)
     def __init__(self, player_num, color):
@@ -112,22 +94,39 @@ class Player:
         self.color = color
         self.cards = []
         for i in range(7):
-            self.cards.append(Card.generate())
+            self.draw_card()
 
     def draw_card(self):
         #Draw random card
-        self.cards.append(Card.generate())
+        self.cards.append(card_deck.pop(0))
 
     def play_card(self, card_num):
         #Method to play card for both computer and human players.
         #Does not check for validity or make actions happen.
-        global last_card
-        last_card = self.cards.pop(card_num)
+        card_deck.append(self.cards.pop(card_num))
 
 def debug(msg):
     #Adds msg to debug_buffer
     global debug_buffer
     debug_buffer += f"\n{msg}"
+
+def generate_deck():
+    #Generate card deck at start of game
+    global card_deck
+    debug("Generating deck")
+    for color in range(2, 6):
+        for num in range(0, 10):
+            card_deck.append(Card(0, color, num))
+        for num in range(1, 10):
+            card_deck.append(Card(0, color, num))
+        for t in (2, 3, 6, 7):
+            card_deck.append(Card(t, color, -1))
+
+    for i in (2, 4, 5):
+        for j in range(0, 4):
+            card_deck.append(Card(i, 1, -1))
+
+    random.shuffle(card_deck)
 
 def main_curses(stdscr):
     #Entry point for curses
@@ -147,6 +146,7 @@ def main():
     #Real start of program; curses.wrapper() is called here
     global players
     print(WELCOME_MSG)
+    generate_deck()
     players_amount = input()
     while not (players_amount.isdigit() and (int(players_amount) in range(2, 6))):
         print("Please enter an integer between 2-5:\n")
