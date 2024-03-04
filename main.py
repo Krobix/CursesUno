@@ -1,5 +1,14 @@
-import curses, random
+import curses, random, math
 #Uno game written in python using Curses for Performance task. Started 2/29/24
+
+#To be shown at top of screen.
+GAME_TITLE = """
+ _   _               _ 
+| | | |_ __   ___   | |
+| | | | '_ \ / _ \  | |
+| |_| | | | | (_) | |_|
+ \___/|_| |_|\___/  (_)
+"""
 
 #String literal to be formatted to show specific cards. Uses keyword arguments for formatting
 CARD_FORMAT = """_________
@@ -117,16 +126,30 @@ def generate_deck():
     for color in range(2, 6):
         for num in range(0, 10):
             card_deck.append(Card(0, color, num))
+            card_deck.append(Card(0, color, num))
         for num in range(1, 10):
             card_deck.append(Card(0, color, num))
+            card_deck.append(Card(0, color, num))
+        #action cards
         for t in (2, 3, 6, 7):
             card_deck.append(Card(t, color, -1))
+            card_deck.append(Card(t, color, -1))
 
+    #wild cards
     for i in (2, 4, 5):
         for j in range(0, 4):
             card_deck.append(Card(i, 1, -1))
+            card_deck.append(Card(i, 1, -1))
 
     random.shuffle(card_deck)
+
+def game_finished():
+    #TODO
+    return False
+
+def update_player_list(win):
+    #TODO: Update the player list window with player names and amount of cards.
+    pass
 
 def main_curses(stdscr):
     #Entry point for curses
@@ -139,7 +162,26 @@ def main_curses(stdscr):
     curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
     curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-    #############################
+    #####CREATING WINDOWS
+    #Argument order for newwin is: height, width, start y, start x
+    title_win = curses.newwin(8, 25, 0, (screen_width//2)-(25//2))
+    player_list_win = curses.newwin(screen_height, screen_width // 6)
+    last_card_win = curses.newwin(CARD_HEIGHT, CARD_WIDTH, (screen_height//2)-(CARD_HEIGHT//2), (screen_width//2)-(CARD_WIDTH//2))
+    status_msg_win = curses.newwin(screen_height//10, math.floor(screen_width*0.83), 15, screen_width//6)
+    deck_scroll_status_win = curses.newwin(screen_height//10, math.floor(screen_width*0.83), screen_height-CARD_HEIGHT-screen_height//10, screen_width//6)
+    player_deck_wins = [] #This will be filled in after
+    #####################
+    shown_cards_amount = math.floor((screen_width*0.8) / (CARD_WIDTH+2))
+    card_win_start_x = (screen_width // 6) + 1
+    for i in range(shown_cards_amount):
+        window = curses.newwin(CARD_HEIGHT, CARD_WIDTH, screen_height-CARD_HEIGHT-1, card_win_start_x)
+        player_deck_wins.append(window)
+        card_win_start_x += CARD_WIDTH + 1
+
+    while not game_finished():
+        #TODO
+        pass
+
 
 
 def main():
