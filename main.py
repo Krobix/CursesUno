@@ -13,7 +13,11 @@ GAME_TITLE = """
 #String literal to be formatted to show specific cards. Uses keyword arguments for formatting
 CARD_FORMAT = """_________
 |       |
+|       |
+|       |
 |{card_label}|
+|       |
+|       |
 |_______|"""
 
 #Welcome and help messages
@@ -26,7 +30,7 @@ supports color. Do NOT resize the terminal while playing. For now, please enter 
 
 #Constants for card size
 CARD_WIDTH = 9
-CARD_HEIGHT = 4
+CARD_HEIGHT = 8
 
 #String where debug info is stored during execution of program. the ` key can be pressed to toggle it on screen
 debug_buffer = "DEBUG LOG"
@@ -89,11 +93,12 @@ class Card:
                 self.label += " "
             else:
                 self.label = " " + self.label
+            i += 1
 
     def draw(self, window):
         #Given a curses Window object, draw a card on it. It's expected that the window is already the right size.
-        window.clear()
-        window.addstr(CARD_FORMAT.format(card_label=self.label), curses.color_pair(self.color))
+        window.erase()
+        window.addstr(0, 0, CARD_FORMAT.format(card_label=self.label), curses.color_pair(self.color) | curses.A_BOLD)
         window.refresh()
 
 class Player:
@@ -138,18 +143,35 @@ def generate_deck():
     #wild cards
     for i in (2, 4, 5):
         for j in range(0, 4):
-            card_deck.append(Card(i, 1, -1))
-            card_deck.append(Card(i, 1, -1))
-
-    random.shuffle(card_deck)
+            card_deck.append(Card(i, 0, -1))
+            card_deck.append(Card(i, 0, -1))
+    #The first card shouldnt be a wild
+    while card_deck[len(card_deck)-1].color==0:
+        random.shuffle(card_deck)
 
 def game_finished():
     #TODO
     return False
 
 def update_player_list(win):
-    #TODO: Update the player list window with player names and amount of cards.
-    pass
+    win.erase()
+    win.addstr(0, 0, "PLAYER LIST:")
+    y_offset = 5
+    for p in players:
+        pstring = f"Player {p.player_num}"
+        if len(p.cards) > 1:
+            pstring += f"\n{len(p.cards)} cards left"
+        else:
+            pstring += "\nHas uno!"
+        win.addstr(y_offset, 0, pstring, curses.color_pair(p.color) | curses.A_BOLD)
+        y_offset += 4
+    win.refresh()
+
+def status(msg, color, win):
+    #Update "status" window (Message in middle of screen)
+    win.erase()
+    win.addstr(0, 0, msg, curses.color_pair(color) | curses.A_BOLD)
+    win.refresh()
 
 def main_curses(stdscr):
     #Entry point for curses
@@ -164,23 +186,29 @@ def main_curses(stdscr):
     curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
     #####CREATING WINDOWS
     #Argument order for newwin is: height, width, start y, start x
-    title_win = curses.newwin(8, 25, 0, (screen_width//2)-(25//2))
+    title_win = curses.newwin(9, 26, 0, (screen_width//2)-(25//2))
     player_list_win = curses.newwin(screen_height, screen_width // 6)
-    last_card_win = curses.newwin(CARD_HEIGHT, CARD_WIDTH, (screen_height//2)-(CARD_HEIGHT//2), (screen_width//2)-(CARD_WIDTH//2))
+    last_card_win = curses.newwin(CARD_HEIGHT+1, CARD_WIDTH+1, (screen_height//2)-(CARD_HEIGHT//2), (screen_width//2)-(CARD_WIDTH//2))
     status_msg_win = curses.newwin(screen_height//10, math.floor(screen_width*0.83), 15, screen_width//6)
-    deck_scroll_status_win = curses.newwin(screen_height//10, math.floor(screen_width*0.83), screen_height-CARD_HEIGHT-screen_height//10, screen_width//6)
+    deck_scroll_status_win = curses.newwin(screen_height//10, math.floor(screen_width*0.83), screen_height-CARD_HEIGHT-1-screen_height//10, screen_width//6)
     player_deck_wins = [] #This will be filled in after
     #####################
-    shown_cards_amount = math.floor((screen_width*0.8) / (CARD_WIDTH+2))
-    card_win_start_x = (screen_width // 6) + 1
+    curses.curs_set(0)
+    shown_cards_amount = math.floor((screen_width*0.8) / (CARD_WIDTH+3))
+    card_win_start_x = (screen_width // 6) + 2
     for i in range(shown_cards_amount):
-        window = curses.newwin(CARD_HEIGHT, CARD_WIDTH, screen_height-CARD_HEIGHT-1, card_win_start_x)
+        window = curses.newwin(CARD_HEIGHT+1, CARD_WIDTH+1, screen_height-CARD_HEIGHT-2, card_win_start_x)
         player_deck_wins.append(window)
         card_win_start_x += CARD_WIDTH + 1
-
+    #Main UI loop
     while not game_finished():
         #TODO
-        pass
+        title_win.addstr(0, 0, GAME_TITLE)
+        title_win.refresh()
+        update_player_list(player_list_win)
+        #Display last card in deck
+        card_deck[len(card_deck)-1].draw(last_card_win)
+
 
 
 
@@ -189,13 +217,14 @@ def main():
     global players
     print(WELCOME_MSG)
     generate_deck()
+    players.append(Player(1, 0))
     players_amount = input()
     while not (players_amount.isdigit() and (int(players_amount) in range(2, 6))):
         print("Please enter an integer between 2-5:\n")
         players_amount = input()
 
     for i in range(int(players_amount)):
-        players.append(Player(i+1, i+1))
+        players.append(Player(i+2, i+2))
 
     curses.wrapper(main_curses)
 
