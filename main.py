@@ -33,16 +33,16 @@ CARD_WIDTH = 9
 CARD_HEIGHT = 8
 
 #String where debug info is stored during execution of program. the ` key can be pressed to toggle it on screen
+#If debug_enabled is True
 debug_buffer = "DEBUG LOG"
 
 #screen status
 debug_showing = False
 help_showing = False
 
-#input modes
-card_select_enabled = True
+#if debug menu should be available
 debug_enabled = True
-help_enabled = True
+
 
 #global screen information variables
 screen_height = 0
@@ -51,6 +51,13 @@ screen_width = 0
 #game state variables
 players = []
 card_deck = []
+
+#Exceptions- these are here to close the curses interface when certain actions are performed
+class HelpInterrupt(Exception):
+    pass
+
+class DebugInterrupt(Exception):
+    pass
 
 class Card:
     #Class for cards
@@ -64,6 +71,7 @@ class Card:
         self.card_type = card_type
         self.color = color
         self.number = number
+        self.selected = False
         self.create_label()
         debug(f"Created Card object with card_type={str(card_type)} color={str(color)} number={str(number)} label={str(self.label)}")
 
@@ -95,10 +103,18 @@ class Card:
                 self.label = " " + self.label
             i += 1
 
-    def draw(self, window):
+    def draw(self, window, show_select=False):
         #Given a curses Window object, draw a card on it. It's expected that the window is already the right size.
         window.erase()
-        window.addstr(0, 0, CARD_FORMAT.format(card_label=self.label), curses.color_pair(self.color) | curses.A_BOLD)
+        if not show_select:
+            window.addstr(0, 0, CARD_FORMAT.format(card_label=self.label), curses.color_pair(self.color) | curses.A_BOLD)
+        else:
+            #Show whether card has been selected or not (for player)
+            selectcol = 0
+            if self.selected:
+                selectcol = 1
+            window.addstr(0, (CARD_WIDTH//2)-1, "***", curses.color_pair(selectcol))
+            window.addstr(1, 0, CARD_FORMAT.format(card_label=self.label), curses.color_pair(self.color) | curses.A_BOLD)
         window.refresh()
 
 class Player:
@@ -121,21 +137,24 @@ class Player:
 
 class CursesInterface:
     #Class that holds the different windows, etc.
-    def __init__(self):
+    def __init__(self, stdscr):
         # Argument order for newwin is: height, width, start y, start x
+        self.stdscr = stdscr
         self.title_win = curses.newwin(9, 26, 0, (screen_width // 2) - (25 // 2))
         self.player_list_win = curses.newwin(screen_height, screen_width // 6)
         self.last_card_win = curses.newwin(CARD_HEIGHT + 1, CARD_WIDTH + 1, (screen_height // 2) - (CARD_HEIGHT // 2), (screen_width // 2) - (CARD_WIDTH // 2))
         self.status_msg_win = curses.newwin(screen_height // 10, math.floor(screen_width * 0.83), 15, screen_width // 6)
-        self.deck_scroll_status_win = curses.newwin(screen_height // 10, math.floor(screen_width * 0.83), screen_height - CARD_HEIGHT - 1 - screen_height // 10, screen_width // 6)
+        self.deck_scroll_status_win = curses.newwin(screen_height // 10, math.floor(screen_width * 0.83), screen_height - CARD_HEIGHT - 3 - (screen_height // 10), screen_width // 6)
         self.player_deck_wins = []  # This will be filled in after
         #####################
         shown_cards_amount = math.floor((screen_width * 0.8) / (CARD_WIDTH + 3))
         card_win_start_x = (screen_width // 6) + 2
         for i in range(shown_cards_amount):
-            window = curses.newwin(CARD_HEIGHT + 1, CARD_WIDTH + 1, screen_height - CARD_HEIGHT - 2, card_win_start_x)
+            window = curses.newwin(CARD_HEIGHT + 2, CARD_WIDTH + 1, screen_height - CARD_HEIGHT - 3, card_win_start_x)
             self.player_deck_wins.append(window)
             card_win_start_x += CARD_WIDTH + 1
+        self.displayed_card_range = [0, shown_cards_amount]
+        self.selected_card = 0
 
     def update_player_list(self):
         win = self.player_list_win
@@ -158,10 +177,68 @@ class CursesInterface:
         self.status_msg_win.addstr(0, 0, msg, curses.color_pair(color) | curses.A_BOLD)
         self.status_msg_win.refresh()
 
+    def display_player_cards(self, pl):
+        #Given Player object pl, display their cards at bottom of screen based on scroll
+        for i in range(self.displayed_card_range[0], self.displayed_card_range[1]):
+            self.player_deck_wins[i - self.displayed_card_range[0]].erase()
+            if i < len(pl.cards):
+                pl.cards[i].draw(window=self.player_deck_wins[i-self.displayed_card_range[0]], show_select=True)
+                self.player_deck_wins[i - self.displayed_card_range[0]].refresh()
+        self.deck_scroll_status_win.erase()
+        self.deck_scroll_status_win.addstr(0, 0, f"Showing cards {self.displayed_card_range[0]+1} to {max(self.displayed_card_range[1]+1, len(pl.cards))} of {len(pl.cards)}")
+        self.deck_scroll_status_win.refresh()
+
+    def select_card(self, pl, card_ind):
+        #Select card at given index in player's deck in the ui, and change scroll accordingly.
+        self.selected_card = card_ind
+        card_amount = self.displayed_card_range[1] - self.displayed_card_range[0]
+        if card_ind >= len(pl.cards):
+            card_ind = len(pl.cards)-1
+        elif card_ind < 0:
+            card_ind = 0
+        if card_ind > self.displayed_card_range[1]:
+            self.displayed_card_range = [card_ind-card_amount, card_ind]
+        elif card_ind < self.displayed_card_range[0]:
+            self.displayed_card_range = [card_ind, card_ind+card_amount]
+        for c in range(0, len(pl.cards)):
+            if c==card_ind:
+                pl.cards[c].selected = True
+            else:
+                pl.cards[c].selected = False
+
+    def card_select_input(self, pl):
+        #Allows the player to scroll through their cards using arrow keys and press enter to select a card.
+        #Returns the index of the card selected. Infinite loop can be used here as return will break it
+        while True:
+            self.display_player_cards(pl)
+            key = self.stdscr.getkey()
+            if key == "KEY_LEFT":
+                self.select_card(pl, self.selected_card-1)
+            elif key == "KEY_RIGHT":
+                self.select_card(pl, self.selected_card+1)
+            elif key=="`" and debug_enabled:
+                raise DebugInterrupt
+            elif key=="h":
+                raise HelpInterrupt
+            elif key=="KEY_ENTER":
+                return self.selected_card
+
 def debug(msg):
     #Adds msg to debug_buffer
     global debug_buffer
     debug_buffer += f"\n{msg}"
+
+def show_help():
+    #TODO
+    pass
+
+def debug_menu():
+    #TODO
+    pass
+
+def show_debug():
+    #TODO
+    pass
 
 def generate_deck():
     #Generate card deck at start of game
@@ -203,9 +280,10 @@ def main_curses(stdscr):
     curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
     curses.init_pair(5, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-    #####CREATING WINDOWS
+    ##############################
     curses.curs_set(0)
-    game_ui = CursesInterface()
+    game_ui = CursesInterface(stdscr)
+    players[0].cards = card_deck
     #Main UI loop
     while not game_finished():
         #TODO
@@ -214,6 +292,9 @@ def main_curses(stdscr):
         game_ui.update_player_list()
         #Display last card in deck
         card_deck[len(card_deck)-1].draw(game_ui.last_card_win)
+        #Display player cards
+        game_ui.card_select_input(players[0])
+        game_ui.display_player_cards(players[0])
 
 
 
@@ -232,6 +313,12 @@ def main():
     for i in range(int(players_amount)):
         players.append(Player(i+2, i+2))
 
-    curses.wrapper(main_curses)
+    while not game_finished():
+        try:
+            curses.wrapper(main_curses)
+        except HelpInterrupt:
+            show_help()
+        except DebugInterrupt:
+            debug_menu()
 
 main()
