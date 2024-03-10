@@ -185,7 +185,7 @@ class CursesInterface:
                 pl.cards[i].draw(window=self.player_deck_wins[i-self.displayed_card_range[0]], show_select=True)
                 self.player_deck_wins[i - self.displayed_card_range[0]].refresh()
         self.deck_scroll_status_win.erase()
-        self.deck_scroll_status_win.addstr(0, 0, f"Showing cards {self.displayed_card_range[0]+1} to {max(self.displayed_card_range[1]+1, len(pl.cards))} of {len(pl.cards)}")
+        self.deck_scroll_status_win.addstr(0, 0, f"Showing cards {self.displayed_card_range[0]+1} to {min(self.displayed_card_range[1]+1, len(pl.cards))} of {len(pl.cards)}")
         self.deck_scroll_status_win.refresh()
 
     def select_card(self, pl, card_ind):
@@ -193,11 +193,11 @@ class CursesInterface:
         self.selected_card = card_ind
         card_amount = self.displayed_card_range[1] - self.displayed_card_range[0]
         if card_ind >= len(pl.cards):
-            card_ind = len(pl.cards)-1
+            self.selected_card = card_ind = len(pl.cards)-1
         elif card_ind < 0:
-            card_ind = 0
-        if card_ind > self.displayed_card_range[1]:
-            self.displayed_card_range = [card_ind-card_amount, card_ind]
+            self.selected_card = card_ind = 0
+        if card_ind >= self.displayed_card_range[1]:
+            self.displayed_card_range = [card_ind-card_amount+1, card_ind+1]
         elif card_ind < self.displayed_card_range[0]:
             self.displayed_card_range = [card_ind, card_ind+card_amount]
         for c in range(0, len(pl.cards)):
@@ -211,7 +211,8 @@ class CursesInterface:
         #Returns the index of the card selected. Infinite loop can be used here as return will break it
         while True:
             self.display_player_cards(pl)
-            key = self.stdscr.getkey()
+            self.deck_scroll_status_win.keypad(True)
+            key = self.deck_scroll_status_win.getkey()
             if key == "KEY_LEFT":
                 self.select_card(pl, self.selected_card-1)
             elif key == "KEY_RIGHT":
@@ -283,12 +284,12 @@ def main_curses(stdscr):
     ##############################
     curses.curs_set(0)
     game_ui = CursesInterface(stdscr)
-    players[0].cards = card_deck
     #Main UI loop
+    game_ui.select_card(players[0], 0)
+    game_ui.title_win.addstr(0, 0, GAME_TITLE)
+    game_ui.title_win.refresh()
     while not game_finished():
         #TODO
-        game_ui.title_win.addstr(0, 0, GAME_TITLE)
-        game_ui.title_win.refresh()
         game_ui.update_player_list()
         #Display last card in deck
         card_deck[len(card_deck)-1].draw(game_ui.last_card_win)
