@@ -28,6 +28,8 @@ supports color. Do NOT resize the terminal while playing. For now, please enter 
  that you want to play against (between 2-5):\n
 """
 
+YOUR_TURN_STATUS_MSG = "YOUR TURN STATUS MESSAGE PLACEHOLDER"
+
 #Constants for card size
 CARD_WIDTH = 9
 CARD_HEIGHT = 8
@@ -51,6 +53,8 @@ screen_width = 0
 #game state variables
 players = []
 card_deck = []
+turn_order = []
+current_turn = 0 #Number of player whose turn it is (as an index of turn_order)
 
 #Exceptions- these are here to close the curses interface when certain actions are performed
 class HelpInterrupt(Exception):
@@ -179,6 +183,9 @@ class CursesInterface:
 
     def display_player_cards(self, pl):
         #Given Player object pl, display their cards at bottom of screen based on scroll
+        for c in self.player_deck_wins:
+            c.erase()
+
         for i in range(self.displayed_card_range[0], self.displayed_card_range[1]):
             self.player_deck_wins[i - self.displayed_card_range[0]].erase()
             if i < len(pl.cards):
@@ -187,6 +194,9 @@ class CursesInterface:
         self.deck_scroll_status_win.erase()
         self.deck_scroll_status_win.addstr(0, 0, f"Showing cards {self.displayed_card_range[0]+1} to {min(self.displayed_card_range[1]+1, len(pl.cards))} of {len(pl.cards)}")
         self.deck_scroll_status_win.refresh()
+
+        for c in self.player_deck_wins:
+            c.refresh()
 
     def select_card(self, pl, card_ind):
         #Select card at given index in player's deck in the ui, and change scroll accordingly.
@@ -221,7 +231,7 @@ class CursesInterface:
                 raise DebugInterrupt
             elif key=="h":
                 raise HelpInterrupt
-            elif key=="KEY_ENTER":
+            elif key=="\n":
                 return self.selected_card
 
 def debug(msg):
@@ -266,6 +276,41 @@ def generate_deck():
     while card_deck[len(card_deck)-1].color==0:
         random.shuffle(card_deck)
 
+def is_valid_card(card):
+    #Checks a card to see if it can be played on top of last played card.
+    #TODO: Remember to add stuff for checking if a draw card was placed and checking if played card is a draw card
+    last_card = card_deck[len(card_deck)-1]
+    return (last_card.color==card.color) or (last_card.number==card.number)
+
+def player_card_check(card, ui):
+    #Uses is_valid_card and brings up color selection menu for wild cards
+    #TODO
+    return is_valid_card(card)
+
+def take_turn(ui):
+    #Takes current turn.
+    global current_turn
+    plnum = turn_order[current_turn]
+    pl = players[plnum]
+    if plnum==0:
+        card_valid = False
+        ui.status(YOUR_TURN_STATUS_MSG, 0)
+
+        while not card_valid:
+            played_card = ui.card_select_input(players[0])
+            card_valid = player_card_check(pl.cards[played_card], ui)
+
+        pl.play_card(played_card)
+
+    else:
+        #TODO
+        pass
+
+    current_turn += 1
+    if current_turn >= len(turn_order):
+        current_turn = 0
+
+
 def game_finished():
     #TODO
     return False
@@ -294,7 +339,7 @@ def main_curses(stdscr):
         #Display last card in deck
         card_deck[len(card_deck)-1].draw(game_ui.last_card_win)
         #Display player cards
-        game_ui.card_select_input(players[0])
+        take_turn(game_ui)
         game_ui.display_player_cards(players[0])
 
 
@@ -306,6 +351,7 @@ def main():
     print(WELCOME_MSG)
     generate_deck()
     players.append(Player(1, 0))
+    turn_order.append(0)
     players_amount = input()
     while not (players_amount.isdigit() and (int(players_amount) in range(2, 6))):
         print("Please enter an integer between 2-5:\n")
@@ -313,6 +359,7 @@ def main():
 
     for i in range(int(players_amount)):
         players.append(Player(i+2, i+2))
+        turn_order.append(i+1)
 
     while not game_finished():
         try:
