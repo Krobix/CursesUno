@@ -55,6 +55,7 @@ players = []
 card_deck = []
 turn_order = []
 current_turn = 0 #Number of player whose turn it is (as an index of turn_order)
+draw_num = 0 #Number of cards that next player has to draw.
 
 #Exceptions- these are here to close the curses interface when certain actions are performed
 class HelpInterrupt(Exception):
@@ -280,12 +281,62 @@ def is_valid_card(card):
     #Checks a card to see if it can be played on top of last played card.
     #TODO: Remember to add stuff for checking if a draw card was placed and checking if played card is a draw card
     last_card = card_deck[len(card_deck)-1]
-    return (last_card.color==card.color) or (last_card.number==card.number)
+    if draw_num == 0:
+        return (last_card.color==card.color) or (last_card.number==card.number) or (card.card_type in (1, 4, 5))
+    else:
+        if not (card.color==last_card.color or card.card_type in (1, 4, 5)) and (card.card_type in range(2, 6)):
+            return False
+        else:
+            return True
 
 def player_card_check(card, ui):
     #Uses is_valid_card and brings up color selection menu for wild cards
     #TODO
     return is_valid_card(card)
+
+def ai_choose_card(pl):
+    #Player object pl chooses card. If zero is returned, it chose to draw a card.
+    card_scores = []
+    draw_score = 0 # What the AI scores drawing a card as opposed to playing one
+    color_amounts = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
+    #Set color amounts
+    for c in pl.cards:
+        color_amounts[c.color] += 1
+    #score cards
+    for c in pl.cards:
+        debug(f"Scoring card: color={c.color} type={c.card_type} number={c.number} label={c.label}")
+        score = 0
+
+        if not is_valid_card(c):
+            score -= 1000
+            draw_score += 1
+        else:
+            draw_score -= 100
+
+        if c.card_type == 0:
+            score += 15
+        elif c.card_type in range(1, 6):
+            score += 5
+        else:
+            score += 10
+
+        if (draw_num > 0) and (c.card_type in range(2, 6)):
+            score += 100
+
+        score += color_amounts[c.color]
+
+        debug(f"SCORE={score}")
+
+        card_scores.append(score)
+
+    highest_score = max(card_scores)
+    card_or_draw = max(highest_score, draw_score)
+
+    if card_or_draw==draw_score:
+        return 0
+    else:
+        return card_scores.index(card_or_draw)
+
 
 def take_turn(ui):
     #Takes current turn.
