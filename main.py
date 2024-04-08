@@ -1,4 +1,4 @@
-import curses, random, math
+import curses, random, math, time
 #Uno game written in python using Curses for Performance task. Started 2/29/24
 
 #To be shown at top of screen.
@@ -26,6 +26,9 @@ Hello! Welcome to Uno. Yu will be playing the Uno card game in the terminal with
 you can press the h key any time after leaving this screen to view the instructions. Please note that this game requires a terminal that 
 supports color. Do NOT resize the terminal while playing. For now, please enter the amount of computer players
  that you want to play against (between 2-5):\n
+"""
+
+HELP_MSG = """
 """
 
 YOUR_TURN_STATUS_MSG = "YOUR TURN STATUS MESSAGE PLACEHOLDER"
@@ -176,11 +179,12 @@ class CursesInterface:
             y_offset += 4
         win.refresh()
 
-    def status(self, msg, color):
+    def status(self, msg, color=0, wait=1.5):
         # Update "status" window (Message in middle of screen)
         self.status_msg_win.erase()
         self.status_msg_win.addstr(0, 0, msg, curses.color_pair(color) | curses.A_BOLD)
         self.status_msg_win.refresh()
+        time.sleep(wait)
 
     def display_player_cards(self, pl):
         #Given Player object pl, display their cards at bottom of screen based on scroll
@@ -295,7 +299,7 @@ def player_card_check(card, ui):
     return is_valid_card(card)
 
 def ai_choose_card(pl):
-    #Player object pl chooses card. If zero is returned, it chose to draw a card.
+    #Player object pl chooses card. If -1 is returned, it chose to draw a card.
     card_scores = []
     draw_score = 0 # What the AI scores drawing a card as opposed to playing one
     color_amounts = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
@@ -331,18 +335,43 @@ def ai_choose_card(pl):
 
     highest_score = max(card_scores)
     card_or_draw = max(highest_score, draw_score)
+    #Pick color for wild cards
+    if pl.cards[card_scores.index(card_or_draw)].card_type in (1, 4, 5):
+        most_color = max((color_amounts[2], color_amounts[3], color_amounts[4], color_amounts[6]))
+        most_color = {i for i in color_amounts if (color_amounts[i]==most_color and i in range(2, 7))}
+        pl.cards[card_scores.index(card_or_draw)].color=most_color
 
     if card_or_draw==draw_score:
-        return 0
+        return -1
     else:
         return card_scores.index(card_or_draw)
 
+def card_effect(ui):
+    #Execute effects of last card (i.e. reverse turn order, skip, etc.)
+    global draw_num, current_turn
+    last_card = card_deck[-1]
+    #Draw 2
+    if last_card.card_type in (2, 4):
+        draw_num += 2
+    #Draw 4
+    elif last_card.card_type in (3, 5):
+        draw_num += 4
+    #Reverse
+    elif last_card.card_type==6:
+        turn_order.reverse()
+        current_turn = len(turn_order)-current_turn-1
+        ui.status("Turn order has been reversed!")
+    #Skip
+    elif last_card.card_type==7:
+        current_turn += 1
+        ui.status(f"Player {turn_order[current_turn]} has been skipped!")
 
 def take_turn(ui):
     #Takes current turn.
-    global current_turn
+    global current_turn, draw_num
     plnum = turn_order[current_turn]
     pl = players[plnum]
+    #If it is the player's turn.
     if plnum==0:
         card_valid = False
         ui.status(YOUR_TURN_STATUS_MSG, 0)
@@ -352,12 +381,27 @@ def take_turn(ui):
             card_valid = player_card_check(pl.cards[played_card], ui)
 
         pl.play_card(played_card)
-
+    #If it is an AI's turn.
     else:
-        #TODO
-        pass
+        ui.status("placeholder", pl.color)
+        choice = ai_choose_card(pl)
+        if choice==-1:
+            if draw_num > 0:
+                for i in range(draw_num):
+                    pl.draw_card()
+                    ui.status("placeholder", pl.color)
+                draw_num = 0
+            else:
+                pl.draw_card()
+                ui.status("placeholder", pl.color)
 
+        else:
+            pl.play_card(choice)
+            ui.status("placeholder", pl.color)
+
+    card_effect(ui)
     current_turn += 1
+
     if current_turn >= len(turn_order):
         current_turn = 0
 
