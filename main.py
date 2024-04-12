@@ -47,6 +47,7 @@ help_showing = False
 
 #if debug menu should be available
 debug_enabled = True
+debug_write = True #If debug output should be written to a file
 
 
 #global screen information variables
@@ -243,6 +244,9 @@ def debug(msg):
     #Adds msg to debug_buffer
     global debug_buffer
     debug_buffer += f"\n{msg}"
+    if debug_write:
+        with open("debug.log", "w+") as f:
+            f.write(debug_buffer)
 
 def show_help():
     #TODO
@@ -308,7 +312,7 @@ def ai_choose_card(pl):
         color_amounts[c.color] += 1
     #score cards
     for c in pl.cards:
-        debug(f"Scoring card: color={c.color} type={c.card_type} number={c.number} label={c.label}")
+        debug(f"Scoring card: index={pl.cards.index(c)} color={c.color} type={c.card_type} number={c.number} label={c.label}")
         score = 0
 
         if not is_valid_card(c):
@@ -339,11 +343,13 @@ def ai_choose_card(pl):
     if pl.cards[card_scores.index(card_or_draw)].card_type in (1, 4, 5):
         most_color = max((color_amounts[2], color_amounts[3], color_amounts[4], color_amounts[6]))
         most_color = {i for i in color_amounts if (color_amounts[i]==most_color and i in range(2, 7))}
-        pl.cards[card_scores.index(card_or_draw)].color=most_color
+        pl.cards[card_scores.index(card_or_draw)].color=list(most_color)[0]
 
     if card_or_draw==draw_score:
+        debug("Drawing card")
         return -1
     else:
+        debug(f"Chose card {card_scores.index(card_or_draw)}")
         return card_scores.index(card_or_draw)
 
 def card_effect(ui):
@@ -371,6 +377,7 @@ def take_turn(ui):
     global current_turn, draw_num
     plnum = turn_order[current_turn]
     pl = players[plnum]
+    debug(f"Player {plnum}'s turn")
     #If it is the player's turn.
     if plnum==0:
         card_valid = False
