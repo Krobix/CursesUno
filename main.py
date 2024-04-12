@@ -237,6 +237,8 @@ class CursesInterface:
                 raise DebugInterrupt
             elif key=="h":
                 raise HelpInterrupt
+            elif key=="d":
+                return -1
             elif key=="\n":
                 return self.selected_card
 
@@ -330,6 +332,8 @@ def ai_choose_card(pl):
 
         if (draw_num > 0) and (c.card_type in range(2, 6)):
             score += 100
+        elif draw_num > 0:
+            score -= 1000
 
         score += color_amounts[c.color]
 
@@ -340,7 +344,7 @@ def ai_choose_card(pl):
     highest_score = max(card_scores)
     card_or_draw = max(highest_score, draw_score)
     #Pick color for wild cards
-    if pl.cards[card_scores.index(card_or_draw)].card_type in (1, 4, 5):
+    if card_or_draw==highest_score and pl.cards[card_scores.index(card_or_draw)].card_type in (1, 4, 5):
         most_color = max((color_amounts[2], color_amounts[3], color_amounts[4], color_amounts[6]))
         most_color = {i for i in color_amounts if (color_amounts[i]==most_color and i in range(2, 7))}
         pl.cards[card_scores.index(card_or_draw)].color=list(most_color)[0]
@@ -370,6 +374,8 @@ def card_effect(ui):
     #Skip
     elif last_card.card_type==7:
         current_turn += 1
+        if current_turn >= len(turn_order):
+            current_turn = 0
         ui.status(f"Player {turn_order[current_turn]} has been skipped!")
 
 def take_turn(ui):
@@ -385,26 +391,39 @@ def take_turn(ui):
 
         while not card_valid:
             played_card = ui.card_select_input(players[0])
+            if played_card == -1:
+                #Means player chose to draw card(s)
+                break
             card_valid = player_card_check(pl.cards[played_card], ui)
 
-        pl.play_card(played_card)
+        if played_card == -1:
+            if draw_num > 0:
+                for i in range(draw_num):
+                    pl.draw_card()
+                ui.status(f"You had to draw {draw_num} cards!", pl.color)
+                draw_num = 0
+            else:
+                pl.draw_card()
+                ui.status(f"You chose to draw a card.", pl.color)
+        else:
+            pl.play_card(played_card)
     #If it is an AI's turn.
     else:
-        ui.status("placeholder", pl.color)
+        ui.status(f"Player {plnum}'s turn", pl.color)
         choice = ai_choose_card(pl)
         if choice==-1:
             if draw_num > 0:
                 for i in range(draw_num):
                     pl.draw_card()
-                    ui.status("placeholder", pl.color)
+                ui.status(f"Player {plnum} had to draw {draw_num} cards!", pl.color)
                 draw_num = 0
             else:
                 pl.draw_card()
-                ui.status("placeholder", pl.color)
+                ui.status(f"Player {plnum} chose to draw a card.", pl.color)
 
         else:
             pl.play_card(choice)
-            ui.status("placeholder", pl.color)
+            ui.status(f"Player {plnum} played a {card_deck[-1].label} card", pl.color)
 
     card_effect(ui)
     current_turn += 1
