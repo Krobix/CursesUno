@@ -22,7 +22,7 @@ CARD_FORMAT = """_________
 
 #Welcome and help messages
 WELCOME_MSG = """
-Hello! Welcome to Uno. Yu will be playing the Uno card game in the terminal with 2-5 computer players. If you want to know how to play,
+Hello! Welcome to Uno. You will be playing the Uno card game in the terminal with 2-5 computer players. If you want to know how to play,
 you can press the h key any time after leaving this screen to view the instructions. Please note that this game requires a terminal that 
 supports color. Do NOT resize the terminal while playing. For now, please enter the amount of computer players
  that you want to play against (between 2-5):\n
@@ -138,6 +138,8 @@ class Player:
     def draw_card(self):
         #Draw random card
         self.cards.append(card_deck.pop(0))
+        if self.cards[-1].card_type in (1, 4, 5):
+            self.cards[-1].color = 0
 
     def play_card(self, card_num):
         #Method to play card for both computer and human players.
@@ -182,6 +184,7 @@ class CursesInterface:
 
     def status(self, msg, color=0, wait=1.5):
         # Update "status" window (Message in middle of screen)
+        debug(f"STATUS {msg}")
         self.status_msg_win.erase()
         self.status_msg_win.addstr(0, 0, msg, curses.color_pair(color) | curses.A_BOLD)
         self.status_msg_win.refresh()
@@ -279,7 +282,7 @@ def generate_deck():
             card_deck.append(Card(t, color, -1))
 
     #wild cards
-    for i in (2, 4, 5):
+    for i in (4, 5):
         for j in range(0, 4):
             card_deck.append(Card(i, 0, -1))
             card_deck.append(Card(i, 0, -1))
@@ -294,21 +297,40 @@ def is_valid_card(card):
     if draw_num == 0:
         return (last_card.color==card.color) or (last_card.number==card.number) or (card.card_type in (1, 4, 5))
     else:
-        if not (card.color==last_card.color or card.card_type in (1, 4, 5)) and (card.card_type in range(2, 6)):
-            return False
-        else:
+        if (card.color==last_card.color or card.card_type in (4, 5)) and (card.card_type in range(2, 6)):
             return True
+        else:
+            return False
 
 def player_card_check(card, ui):
     #Uses is_valid_card and brings up color selection menu for wild cards
-    #TODO
-    return is_valid_card(card)
+    valid = is_valid_card(card)
+    if card.card_type in (1, 4, 5):
+        ui.status("Please pick a color for the wild card. Press 'r' for red, 'b' for blue, 'g' for green, or 'y' for yellow.")
+        key = ui.deck_scroll_status_win.getkey()
+        if key=="r":
+            card.color = 2
+        elif key == "b":
+            card.color = 4
+        elif key == "g":
+            card.color = 5
+        elif key == "y":
+            card.color = 3
+        else:
+            return player_card_check(card, ui)
+    return valid
 
 def ai_choose_card(pl):
     #Player object pl chooses card. If -1 is returned, it chose to draw a card.
     card_scores = []
     draw_score = 0 # What the AI scores drawing a card as opposed to playing one
     color_amounts = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
+
+    next_turn = current_turn + 1
+    if next_turn >= len(turn_order):
+        next_turn = 0
+    next_pl_cards_amount = len(players[turn_order[next_turn]].cards)
+
     #Set color amounts
     for c in pl.cards:
         color_amounts[c.color] += 1
@@ -325,10 +347,8 @@ def ai_choose_card(pl):
 
         if c.card_type == 0:
             score += 15
-        elif c.card_type in range(1, 6):
-            score += 5
         else:
-            score += 10
+            score += (7-next_pl_cards_amount)*2
 
         if (draw_num > 0) and (c.card_type in range(2, 6)):
             score += 100
@@ -376,56 +396,44 @@ def card_effect(ui):
         current_turn += 1
         if current_turn >= len(turn_order):
             current_turn = 0
-        ui.status(f"Player {turn_order[current_turn]} has been skipped!")
+        ui.status(f"Player {turn_order[current_turn]+1} has been skipped!")
 
 def take_turn(ui):
     #Takes current turn.
     global current_turn, draw_num
     plnum = turn_order[current_turn]
     pl = players[plnum]
-    debug(f"Player {plnum}'s turn")
     #If it is the player's turn.
     if plnum==0:
         card_valid = False
         ui.status(YOUR_TURN_STATUS_MSG, 0)
 
         while not card_valid:
-            played_card = ui.card_select_input(players[0])
-            if played_card == -1:
+            choice = ui.card_select_input(players[0])
+            if choice == -1:
                 #Means player chose to draw card(s)
                 break
-            card_valid = player_card_check(pl.cards[played_card], ui)
-
-        if played_card == -1:
-            if draw_num > 0:
-                for i in range(draw_num):
-                    pl.draw_card()
-                ui.status(f"You had to draw {draw_num} cards!", pl.color)
-                draw_num = 0
-            else:
-                pl.draw_card()
-                ui.status(f"You chose to draw a card.", pl.color)
-        else:
-            pl.play_card(played_card)
+            card_valid = player_card_check(pl.cards[choice], ui)
     #If it is an AI's turn.
     else:
-        ui.status(f"Player {plnum}'s turn", pl.color)
+        ui.status(f"Player {plnum+1}'s turn", pl.color)
         choice = ai_choose_card(pl)
-        if choice==-1:
-            if draw_num > 0:
-                for i in range(draw_num):
-                    pl.draw_card()
-                ui.status(f"Player {plnum} had to draw {draw_num} cards!", pl.color)
-                draw_num = 0
-            else:
+
+    if choice == -1:
+        if draw_num > 0:
+            for i in range(draw_num):
                 pl.draw_card()
-                ui.status(f"Player {plnum} chose to draw a card.", pl.color)
-
+            ui.status(f"Player {plnum + 1} had to draw {draw_num} cards!", pl.color)
+            draw_num = 0
         else:
-            pl.play_card(choice)
-            ui.status(f"Player {plnum} played a {card_deck[-1].label} card", pl.color)
+            pl.draw_card()
+            ui.status(f"Player {plnum + 1} chose to draw a card.", pl.color)
 
-    card_effect(ui)
+    else:
+        pl.play_card(choice)
+        ui.status(f"Player {plnum + 1} played a {card_deck[-1].label} card", pl.color)
+        card_effect(ui)
+
     current_turn += 1
 
     if current_turn >= len(turn_order):
