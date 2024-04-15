@@ -476,7 +476,7 @@ def main_curses(stdscr):
     #After game has ended
     for pl in players:
         if len(pl.cards)==0:
-            game_ui.status(f"Player {players.index(pl)+1} has won the game!", color=pl.color, wait=5)
+            game_ui.status(f"Player {pl.playuer_num} has won the game!", color=pl.color, wait=5)
 
 
 def main():
