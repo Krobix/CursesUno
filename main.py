@@ -292,10 +292,9 @@ def generate_deck():
 
 def is_valid_card(card):
     #Checks a card to see if it can be played on top of last played card.
-    #TODO: Remember to add stuff for checking if a draw card was placed and checking if played card is a draw card
     last_card = card_deck[len(card_deck)-1]
     if draw_num == 0:
-        return (last_card.color==card.color) or (last_card.number==card.number) or (card.card_type in (1, 4, 5))
+        return (last_card.color==card.color) or (last_card.number==card.number and card.card_type==0) or (card.card_type in (1, 4, 5))
     else:
         if (card.color==last_card.color or card.card_type in (4, 5)) and (card.card_type in range(2, 6)):
             return True
@@ -338,13 +337,13 @@ def ai_choose_card(pl):
     for c in pl.cards:
         debug(f"Scoring card: index={pl.cards.index(c)} color={c.color} type={c.card_type} number={c.number} label={c.label}")
         score = 0
-
+        #Is card Valid?
         if not is_valid_card(c):
             score -= 1000
             draw_score += 1
         else:
             draw_score -= 100
-
+        #If card is a regular card, gets a flat score; Special cards get scored based on the amount of cards te next player has
         if c.card_type == 0:
             score += 15
         else:
@@ -441,8 +440,12 @@ def take_turn(ui):
 
 
 def game_finished():
-    #TODO
-    return False
+    #If a player has won, end the game
+    for pl in players:
+        if len(pl.cards)==0:
+            return True
+        else:
+            continue
 
 def main_curses(stdscr):
     #Entry point for curses
@@ -470,8 +473,10 @@ def main_curses(stdscr):
         #Display player cards
         take_turn(game_ui)
         game_ui.display_player_cards(players[0])
-
-
+    #After game has ended
+    for pl in players:
+        if len(pl.cards)==0:
+            game_ui.status(f"Player {players.index(pl)} has won the game!", color=pl.color, wait=5)
 
 
 def main():
