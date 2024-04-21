@@ -1,4 +1,4 @@
-import curses, random, math, time
+import curses, random, math, time, os
 #Uno game written in python using Curses for Performance task. Started 2/29/24
 
 #To be shown at top of screen.
@@ -29,9 +29,20 @@ supports color. Do NOT resize the terminal while playing. For now, please enter 
 """
 
 HELP_MSG = """
+Note: Press q to return to the game at any time.
+If you've never played before, UNO is a card game where each player has a deck of cards that is made up of cards that are the colors
+red, yellow, blue, and green. Each card also has either a number (0-9) or a "special face". On each player's turn, they must
+play a card that either has the same face or color as the previous card or is a wild card. The special faces are:
+wild: Regular wild, choose a new color for the next card to be
++2: draw 2 card. Next player must either draw 2 cards or place a draw card themselves to pass it on to the next player.
++4: same as +2, but they must draw 4 cards instead of 2.
+Wild+2: Same as wild, but also has the effects of a +2 card
+Wild+4: Same as wild, but also has the effects of a +4 card
+skip: Skips the next player's turn.
+Reverse: reverse the turn order.
 """
 
-YOUR_TURN_STATUS_MSG = "YOUR TURN STATUS MESSAGE PLACEHOLDER"
+YOUR_TURN_STATUS_MSG = "It is your turn! Use the arrow keys and enter to select a card. Press h for help/instructions and d to draw a card(s)."
 
 #Constants for card size
 CARD_WIDTH = 9
@@ -254,16 +265,25 @@ def debug(msg):
             f.write(debug_buffer)
 
 def show_help():
-    #TODO
-    pass
+    #Show help text when "h" pressed
+    with open("help.txt", "w+") as f:
+        f.write(HELP_MSG)
+    os.system("less help.txt")
+    os.remove("help.txt")
+
 
 def debug_menu():
-    #TODO
-    pass
+    #Debug menu
+    inp = ""
+    while inp != "exit":
+        inp = input()
+        if inp != "exit":
+            exec(inp)
+
 
 def show_debug():
-    #TODO
-    pass
+    #Show debugging related text
+    os.system("less debug.log")
 
 def generate_deck():
     #Generate card deck at start of game
@@ -405,7 +425,10 @@ def take_turn(ui):
     #If it is the player's turn.
     if plnum==0:
         card_valid = False
-        ui.status(YOUR_TURN_STATUS_MSG, 0)
+        msg = YOUR_TURN_STATUS_MSG
+        if draw_num > 0:
+            msg += f"You must either place a draw card or draw {draw_num} cards."
+        ui.status(msg, 0)
 
         while not card_valid:
             choice = ui.card_select_input(players[0])
@@ -476,7 +499,7 @@ def main_curses(stdscr):
     #After game has ended
     for pl in players:
         if len(pl.cards)==0:
-            game_ui.status(f"Player {pl.playuer_num} has won the game!", color=pl.color, wait=5)
+            game_ui.status(f"Player {pl.player_num} has won the game!", color=pl.color, wait=5)
 
 
 def main():
