@@ -489,7 +489,6 @@ def main_curses(stdscr):
     game_ui.title_win.addstr(0, 0, GAME_TITLE)
     game_ui.title_win.refresh()
     while not game_finished():
-        #TODO
         game_ui.update_player_list()
         #Display last card in deck
         card_deck[len(card_deck)-1].draw(game_ui.last_card_win)
