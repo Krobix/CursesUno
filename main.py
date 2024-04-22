@@ -29,7 +29,7 @@ supports color. Do NOT resize the terminal while playing. For now, please enter 
 """
 
 HELP_MSG = """
-Note: Press q to return to the game at any time.
+\n\nNote: Press enter to return to the game at any time.
 If you've never played before, UNO is a card game where each player has a deck of cards that is made up of cards that are the colors
 red, yellow, blue, and green. Each card also has either a number (0-9) or a "special face". On each player's turn, they must
 play a card that either has the same face or color as the previous card or is a wild card. The special faces are:
@@ -266,10 +266,7 @@ def debug(msg):
 
 def show_help():
     #Show help text when "h" pressed
-    with open("help.txt", "w+") as f:
-        f.write(HELP_MSG)
-    os.system("less help.txt")
-    os.remove("help.txt")
+    print(HELP_MSG)
 
 
 def debug_menu():
@@ -343,7 +340,7 @@ def ai_choose_card(pl):
     #Player object pl chooses card. If -1 is returned, it chose to draw a card.
     card_scores = []
     draw_score = 0 # What the AI scores drawing a card as opposed to playing one
-    color_amounts = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
+    color_amounts = [0,0,0,0,0,0,0]
 
     next_turn = current_turn + 1
     if next_turn >= len(turn_order):
@@ -367,7 +364,10 @@ def ai_choose_card(pl):
         if c.card_type == 0:
             score += 15
         else:
-            score += (7-next_pl_cards_amount)*2
+            if next_pl_cards_amount <= 5:
+                score += (6-next_pl_cards_amount)**2
+            else:
+                score = 0
 
         if (draw_num > 0) and (c.card_type in range(2, 6)):
             score += 100
@@ -384,9 +384,9 @@ def ai_choose_card(pl):
     card_or_draw = max(highest_score, draw_score)
     #Pick color for wild cards
     if card_or_draw==highest_score and pl.cards[card_scores.index(card_or_draw)].card_type in (1, 4, 5):
-        most_color = max((color_amounts[2], color_amounts[3], color_amounts[4], color_amounts[6]))
-        most_color = {i for i in color_amounts if (color_amounts[i]==most_color and i in range(2, 7))}
-        pl.cards[card_scores.index(card_or_draw)].color=list(most_color)[0]
+        most_color = max((color_amounts[2], color_amounts[3], color_amounts[4], color_amounts[5]))
+        most_color = color_amounts.index(most_color)
+        pl.cards[card_scores.index(card_or_draw)].color=most_color
 
     if card_or_draw==draw_score:
         debug("Drawing card")
