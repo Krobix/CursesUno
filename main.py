@@ -1,5 +1,6 @@
 import curses, random, math, time, os
 #Uno game written in python using Curses for Performance task. Started 2/29/24
+#Only source used is the official Python 3 documentation
 
 #To be shown at top of screen.
 GAME_TITLE = """
@@ -58,7 +59,6 @@ help_showing = False
 
 #if debug menu should be available
 debug_enabled = True
-debug_write = True #If debug output should be written to a file
 
 
 #global screen information variables
@@ -68,7 +68,7 @@ screen_width = 0
 #game state variables
 players = []
 card_deck = []
-turn_order = []
+turn_order = [] #Contains player indexes in players list
 current_turn = 0 #Number of player whose turn it is (as an index of turn_order)
 draw_num = 0 #Number of cards that next player has to draw.
 
@@ -259,8 +259,8 @@ class CursesInterface:
 def debug(msg):
     #Adds msg to debug_buffer
     global debug_buffer
-    debug_buffer += f"\n{msg}"
-    if debug_write:
+    if debug_enabled:
+        debug_buffer += f"\n{msg}"
         with open("debug.log", "w+") as f:
             f.write(debug_buffer)
 
@@ -337,7 +337,7 @@ def player_card_check(card, ui):
     return valid
 
 def ai_choose_card(pl):
-    #Player object pl chooses card. If -1 is returned, it chose to draw a card.
+    #Player object pl chooses card. If -1 is returned, it chose to draw a card. (AI should intelligently choose which card to play)
     card_scores = []
     draw_score = 0 # What the AI scores drawing a card as opposed to playing one
     color_amounts = [0,0,0,0,0,0,0]
@@ -382,10 +382,10 @@ def ai_choose_card(pl):
 
     highest_score = max(card_scores)
     card_or_draw = max(highest_score, draw_score)
-    #Pick color for wild cards
+    #Pick color for wild cards (should be color player has the most of)
     if card_or_draw==highest_score and pl.cards[card_scores.index(card_or_draw)].card_type in (1, 4, 5):
         most_color = max((color_amounts[2], color_amounts[3], color_amounts[4], color_amounts[5]))
-        most_color = color_amounts.index(most_color)
+        most_color = color_amounts[2:].index(most_color)
         pl.cards[card_scores.index(card_or_draw)].color=most_color
 
     if card_or_draw==draw_score:
@@ -427,7 +427,7 @@ def take_turn(ui):
         card_valid = False
         msg = YOUR_TURN_STATUS_MSG
         if draw_num > 0:
-            msg += f"You must either place a draw card or draw {draw_num} cards."
+            msg += f" You must either place a draw card or draw {draw_num} cards."
         ui.status(msg, 0)
 
         while not card_valid:
