@@ -385,7 +385,7 @@ def ai_choose_card(pl):
     #Pick color for wild cards (should be color player has the most of)
     if card_or_draw==highest_score and pl.cards[card_scores.index(card_or_draw)].card_type in (1, 4, 5):
         most_color = max((color_amounts[2], color_amounts[3], color_amounts[4], color_amounts[5]))
-        most_color = color_amounts[2:].index(most_color)
+        most_color = color_amounts[2:].index(most_color)+2
         pl.cards[card_scores.index(card_or_draw)].color=most_color
 
     if card_or_draw==draw_score:
