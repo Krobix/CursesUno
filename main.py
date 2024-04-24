@@ -265,6 +265,7 @@ def debug(msg):
 def show_help():
     #Show help text when "h" pressed
     print(HELP_MSG)
+    input()
 
 
 def debug_menu():
