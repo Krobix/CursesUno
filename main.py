@@ -1,6 +1,8 @@
 import curses, random, math, time, os
 #Uno game written in python using Curses for Performance task. Started 2/29/24
 #Only source used is the official Python 3 documentation
+#must be run on a system that supports Curses
+#Code completed 4/24/24
 
 #To be shown at top of screen.
 GAME_TITLE = """
@@ -53,12 +55,8 @@ CARD_HEIGHT = 8
 #If debug_enabled is True
 debug_buffer = "DEBUG LOG"
 
-#screen status
-debug_showing = False
-help_showing = False
-
 #if debug menu should be available
-debug_enabled = True
+debug_enabled = False
 
 
 #global screen information variables
