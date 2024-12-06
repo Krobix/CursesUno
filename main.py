@@ -298,7 +298,7 @@ def generate_deck():
             card_deck.append(Card(t, color, -1))
 
     #wild cards
-    for i in (4, 5):
+    for i in (1, 4, 5):
         for j in range(0, 4):
             card_deck.append(Card(i, 0, -1))
             card_deck.append(Card(i, 0, -1))
