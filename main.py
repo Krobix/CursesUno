@@ -310,7 +310,7 @@ def is_valid_card(card):
     #Checks a card to see if it can be played on top of last played card.
     last_card = card_deck[len(card_deck)-1]
     if draw_num == 0:
-        return (last_card.color==card.color) or (last_card.number==card.number and card.card_type==0) or (card.card_type in (1, 4, 5))
+        return (last_card.color==card.color) or (last_card.number==card.number and card.card_type==0) or (card.card_type in (1, 4, 5)) or (card.card_type==last_card.card_type and card.card_type in (6, 7))
     else:
         if (card.color==last_card.color or card.card_type in (4, 5)) and (card.card_type in range(2, 6)):
             return True
